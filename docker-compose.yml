@@ -83,12 +83,14 @@ services:
       - transcriptor-central
     networks: [iped-net]
   iped-gui-novnc:
-    image: iped/novnc:latest
+    build:
+      context: .                      # raiz do repo onde está o Dockerfile.iped-novnc
+      dockerfile: Dockerfile.iped-novnc
+    image: iped/novnc:latest          # opcional, dá um nome à imagem local construída
     restart: unless-stopped
     environment:
       TZ: America/Sao_Paulo
-      # Ajuste a resolução se quiser:
-      # RESOLUTION: 1600x900x24
+      RESOLUTION: 1600x900x24         # ajuste se quiser
     working_dir: /opt/IPED/iped
     volumes:
       - /servidor/iped/evidences:/evidences

@@ -1,0 +1,19 @@
+FROM ipeddocker/iped:latest
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    TZ=America/Sao_Paulo \
+    DISPLAY=:1 \
+    RESOLUTION=1366x768x24
+
+# Desktop leve + VNC + noVNC
+RUN apt-get update && apt-get install -y \
+      xfce4 xfce4-terminal x11vnc xvfb novnc websockify \
+ && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Script de inicialização do Xvfb + x11vnc + noVNC + (opcional) iped-search
+COPY start-novnc.sh /usr/local/bin/start-novnc.sh
+RUN chmod +x /usr/local/bin/start-novnc.sh
+
+EXPOSE 5901 6080
+WORKDIR /opt/IPED/iped
+CMD ["/usr/local/bin/start-novnc.sh"]

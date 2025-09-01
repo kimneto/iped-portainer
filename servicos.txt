@@ -1,0 +1,108 @@
+  
+  iped-gui-novnc:
+    build:
+      context: .                      # raiz do repo onde está o Dockerfile.iped-novnc
+      dockerfile: Dockerfile.iped-novnc
+    image: iped/novnc:latest          # opcional, dá um nome à imagem local construída
+    restart: unless-stopped
+    environment:
+      TZ: America/Sao_Paulo
+      RESOLUTION: 1600x900x24         # ajuste se quiser
+    working_dir: /opt/IPED/iped
+    volumes:
+      - /servidor/iped/evidences:/evidences
+      - /servidor/iped/ipedtmp:/mnt/ipedtmp
+      - /servidor/iped/plugins:/mnt/plugins
+      - /servidor/iped/hashesdb:/mnt/hashesdb
+    ports:
+      - "6080:6080"   # noVNC (browser)
+      - "5901:5901"   # VNC opcional (cliente VNC)
+    command: >
+      bash -lc '
+        if [ -x ./iped-search.sh ]; then
+          exec /usr/local/bin/start-novnc.sh ./iped-search.sh;
+        elif [ -f ./iped-search.jar ]; then
+          exec /usr/local/bin/start-novnc.sh java -jar iped-search.jar;
+        else
+          echo "iped-search não encontrado em /opt/IPED/iped"; ls -lah .; sleep 20;
+        fi
+      '
+  
+  iped-processor-job:
+    image: ipeddocker/iped:processor
+    restart: "no"
+    working_dir: /opt/IPED/iped
+    environment:
+      TZ: America/Sao_Paulo
+    volumes:
+      - /servidor/iped/evidences:/evidences
+      - /servidor/iped/ipedtmp:/mnt/ipedtmp
+      - /servidor/iped/plugins:/mnt/plugins
+      - /servidor/iped/hashesdb:/mnt/hashesdb
+    command: >
+      bash -lc '
+        E="${EVIDENCE_PATH:-/evidences/test/test.dd}";
+        O="${OUTPUT_PATH:-/evidences/test/iped-output}";
+        exec java -jar iped.jar --nogui -d "$E" -o "$O"
+      '
+    networks: [iped-net]
+
+  iped-gui:
+    image: ipeddocker/iped:latest
+    restart: unless-stopped
+    working_dir: /opt/IPED/iped
+    environment:
+      TZ: America/Sao_Paulo
+      DISPLAY: ${DISPLAY:-:0}
+      GDK_BACKEND: ${GDK_BACKEND:-x11}
+      GDK_SCALE: ${GDK_SCALE:-1}
+      GDK_DPI_SCALE: ${GDK_DPI_SCALE:-1}
+      QT_DEVICE_PIXEL_RATIO: ${QT_DEVICE_PIXEL_RATIO:-1}
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
+      NO_AT_BRIDGE: "1"
+    volumes:
+      - /servidor/iped/evidences:/evidences
+      - /servidor/iped/ipedtmp:/mnt/ipedtmp
+      - /servidor/iped/plugins:/mnt/plugins
+      - /servidor/iped/hashesdb:/mnt/hashesdb
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+      - /etc/localtime:/etc/localtime:ro
+    devices:
+      - /dev/dri:/dev/dri
+      - /dev/snd:/dev/snd
+    ipc: host
+    command: >
+      bash -lc '
+        if [ -x ./iped-search.sh ]; then exec ./iped-search.sh;
+        elif [ -f ./iped-search.jar ]; then exec java -jar iped-search.jar;
+        else echo "iped-search não encontrado"; ls -lah .; sleep 5; fi
+      '
+    networks: [iped-net]
+
+  transcriptor-central:
+    image: ipeddocker/iped:transcriptor_central_node
+    restart: unless-stopped
+    working_dir: /opt/IPED/iped
+    environment:
+      TZ: America/Sao_Paulo
+    command: >
+      bash -lc 'exec java -jar /opt/IPED/iped/lib/iped-engine.jar'
+    ports:
+      - "${ENGINE_PORT:-11111}:11111"
+    networks: [iped-net]
+
+  transcriptor-worker:
+    image: ipeddocker/iped:transcriptor
+    restart: unless-stopped
+    working_dir: /opt/IPED/iped
+    environment:
+      TZ: America/Sao_Paulo
+      iped_enableAudioTranscription: "true"
+      iped_remoteServiceAddress: "${REMOTE_ENGINE:-transcriptor-central:11111}"
+    volumes:
+      - /servidor/iped/ipedtmp:/mnt/ipedtmp
+    command: ["/bin/bash"]
+    depends_on:
+      - transcriptor-central
+    networks: [iped-net]

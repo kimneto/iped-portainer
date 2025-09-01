@@ -17,3 +17,8 @@ RUN chmod +x /usr/local/bin/start-novnc.sh
 EXPOSE 5901 6080
 WORKDIR /opt/IPED/iped
 CMD ["/usr/local/bin/start-novnc.sh"]
+
+
+
+
+
